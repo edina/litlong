@@ -1,0 +1,2 @@
+-r local.txt # includes the _base.txt requirements file
+titlecase
