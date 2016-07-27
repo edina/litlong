@@ -1,0 +1,87 @@
+{% extends "rest_framework/base.html" %}
+{% load staticfiles %}
+
+{% block head %}
+
+    {% block meta %}
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <meta name="robots" content="NONE,NOARCHIVE" />
+    {% endblock %}
+
+    <title>{% block title %}API &raquo; Lit Long{% endblock %}</title>
+
+    {% block style %}
+        {% block bootstrap_theme %}
+            <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/bootstrap.min.css" %}"/>
+            <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/bootstrap-tweaks.css" %}"/>
+        {% endblock %}
+        <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/prettify.css" %}"/>
+        <link rel="stylesheet" type="text/css" href="{% static "rest_framework/css/default.css" %}"/>
+        <link rel="stylesheet" href="{% static 'css/overall.css' %}" type="text/css" media="screen" >
+        <style>
+            body a {color: #1882bc;}
+            body a:hover {color:#083c4c;}
+            .top-header {background: white;}
+            .logo p {
+                line-height:44px;
+                font-size: 1.5em;
+            }
+            nav > ul > li > a { line-height:44px; font-size:1.15em;}
+            .pagination>li {margin: 0; padding: 0; background-image: none;}</style>
+    {% endblock %}
+
+{% endblock %}
+{% block navbar %}
+    <div class="parent-wrapper">
+        <div class="top-header">
+            <div class="wrap">
+                <header>
+                    <div class="logo">
+                        <a href="http://litlong.org/"><img src="{% static 'img/logo-icon@x2.png' %}" width="76" height="76" alt="Logo"></a>
+                        <p><span>Lit Long :</span> Edinburgh<sup>o</sup></p>
+                    </div>
+                    <a href="#" class="nav-toggle"><img src="{% static 'img/menuToggle.gif' %}" width="25" height="21" alt="menu toggle"></a>
+                    <nav>
+                        <ul>
+                            <li><a href="http://litlong.org/news/">News</a></li>
+                            <li><a href="http://litlong.org/navigating-with-litlong/">Navigating with LitLong</a>
+                                <ul>
+                                    <li class="current"><a href="http://litlong.edina.ac.uk/visualiser/location/">Location Visualiser</a></li>
+{#                                     <li><a href="http://litlong.org/#">Sentiment Visualiser</a></li> #}
+                                    <li><a href="http://litlong.org/navigating-with-litlong/download-our-app/">Download our App</a></li>
+                                    <li><a href="http://litlong.edina.ac.uk/search/">The database</a></li>
+                                </ul>
+                            </li>
+                            <li><a href="http://litlong.org/content/">Content</a>
+                                <ul>
+                                    <li><a href="http://litlong.org/content/collections/">Collections</a></li>
+                                    <li><a href="http://litlong.org/content/contemporary-authors/">Contemporary authors</a></li>
+                                    <li><a href="http://litlong.org/content/writing-competition/">Writing competition</a></li>
+                                    <li><a href="http://litlong.org/content/candlemaker-row/">Candlemaker Row</a></li>
+                                </ul>
+                            </li>
+                            <li><a href="http://litlong.org/about-litlong/">About LitLong</a>
+                                <ul>
+                                    <li><a href="http://litlong.org/about-litlong/team/">Team</a></li>
+                                    <li><a href="http://litlong.org/about-litlong/acknowlwedgements/">Acknowledgements</a></li>
+                                    <li><a href="http://litlong.org/about-litlong/talks-and-publications/">Talks and Publications</a></li>
+{#                                     <li><a href="http://litlong.org/#">Disclaimer</a></li> #}
+                                </ul>
+                            </li>
+                        </ul>
+                    </nav>
+                </header>
+            </div>
+        </div>
+        <div class="search-container">
+            <div class="wrap">
+                <header>
+                    <h1>Database API</h1>
+                </header>
+                <div id="searchPanel" class="search">
+                </div>
+            </div>               
+        </div>  
+    </div>
+
+{% endblock %}

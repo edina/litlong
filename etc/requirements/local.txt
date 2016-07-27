@@ -1,0 +1,5 @@
+-r _base.txt # includes the _base.txt requirements file
+django_extensions
+fabric
+ipdb==0.8
+ipython==3.0.0
