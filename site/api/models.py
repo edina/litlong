@@ -7,17 +7,20 @@ class Collection(models.Model):
     def __unicode__(self):
         return self.text
 
+class Publisher(models.Model):
+    name = models.TextField(null=False)
 
 class Document(models.Model):
     docid = models.CharField(max_length=96, null=False)
     title = models.TextField(null=False)
-    external_url = models.CharField(max_length=128, null=True, db_column='url')
+    url = models.CharField(max_length=128, null=True, db_column='url')
     pubdate = models.DateField(null=True)
     type = models.CharField(max_length=32, null=True)
-    author = models.TextField(null=True)
     majlang = models.CharField(max_length=3, null=True)
     collection = models.ForeignKey(Collection, null=False, default=0,
             related_name='documents')
+    publisher = models.ForeignKey(Publisher, null=True)
+    active = models.BooleanField(null=False)
 
     def __unicode__(self):
         return self.title
@@ -26,9 +29,8 @@ class Document(models.Model):
     pages = {}
     parsed_locations = {}
 
-
 class Page(models.Model):
-    identifier = models.URLField(null=True, db_column='url')
+    url = models.URLField(null=True, db_column='url')
     lang = models.CharField(max_length=16, null=True)
     document = models.ForeignKey(Document, null=False, related_name='pages')
 
@@ -53,9 +55,9 @@ class Location(models.Model):
     text = models.CharField(max_length=128, null=False)
     lat = models.FloatField(null=True)
     lon = models.FloatField(null=True)
-    point = models.PointField(null=True, srid=4326, db_column='geom')
-    polygon = models.PolygonField(null=True, srid=4326, db_column='poly')
-    polygon_type = models.CharField(max_length=32, null=True, db_column='ptype')
+    geom = models.PointField(null=True, srid=4326, db_column='geom')
+    poly = models.PolygonField(null=True, srid=4326, db_column='poly')
+    ptype = models.CharField(max_length=32, null=True, db_column='ptype')
     in_country = models.CharField(max_length=2, null=True)
     gazref = models.CharField(max_length=32, null=True)
     feature_type = models.CharField(max_length=32, null=True)
@@ -70,8 +72,8 @@ class LocationMention(models.Model):
     text = models.CharField(max_length=128, null=False)
     start_word = models.CharField(max_length=10, null=False)
     end_word = models.CharField(max_length=10, null=False)
-    # document = models.ForeignKey(Document, null=False, default=0)
-    # page = models.ForeignKey(Page, null=False, default=0)
+    document = models.ForeignKey(Document, null=False, default=0)
+    page = models.ForeignKey(Page, null=False, default=0)
     sentence = models.ForeignKey(Sentence, null=False, default=0)
     location = models.ForeignKey(Location, null=False, default=0,
             related_name='location-mentions')
@@ -95,3 +97,25 @@ class POSMention(models.Model):
 
     def __unicode__(self):
         return self.text
+
+class Author(models.Model):
+    id = models.AutoField(primary_key=True)
+    forenames = models.TextField(null=True)
+    surname = models.TextField(null=False)
+    gender = models.CharField(null=False, default='u')
+    link = models.TextField(null=True)
+    ol_id = models.CharField(null=True)
+
+    def __unicode__(self):
+        return "{0}, {1}".format(self.surname, self.forenames)
+
+class Document_Author(models.Model):
+    author = models.ForeignKey(Author, primary_key=True)
+    document = models.ForeignKey(Document, primary_key=True)
+
+class Genre(models.Model):
+    name = models.TextField(null=False)
+
+class Document_Genre(models.Model):
+    genre = models.ForeignKey(Genre, primary_key=True)
+    document = models.ForeignKey(Document, primary_key=True)

@@ -25,10 +25,9 @@ DATABASES = {
 
 STATIC_ROOT = ''
 STATIC_URL = '/static/'
-
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': True,
+    'disable_existing_loggers': False,
     'filters': {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse'
@@ -58,7 +57,7 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(PROJECT_PATH, 'logs/parse_error.log'),
-            'maxBytes': 50000,
+            'maxBytes': 500000,
             'backupCount': 2,
             'formatter': 'standard',
         },

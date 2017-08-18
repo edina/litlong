@@ -1,6 +1,7 @@
 import argparse
 import codecs
 import datetime as dt
+import django
 import glob
 import logging
 import os
@@ -8,17 +9,23 @@ import re
 import sys
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "litlong.local_settings")
 from api.models import (
+    Author,
     Collection,
     Document,
+    Document_Author,
+    Document_Genre,
+    Genre,
     Location,
     LocationMention,
     Page,
+    Publisher,
     Sentence,
     PartOfSpeech,
     POSMention,
 )
 from calendar import monthrange
 from datetime import date, datetime
+from django.core.exceptions import MultipleObjectsReturned
 from django.contrib.gis.geos import Point
 from django.contrib.gis.geos import Polygon
 from django.db import connection
@@ -28,7 +35,10 @@ from titlecase import titlecase
 VERSION = '0.7'
 
 log = logging.getLogger('parser')
+django.setup()
 
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 def timer(f):
     """ Decorator for determining the runtime for a function """
@@ -117,7 +127,6 @@ class Parser():
         self.__current_file = filename
 
         root_element = self._get_root_element_from_xml(filename)
-
         # Parse the metadata element block and store in new document
         document = self._process_metadata_and_create_document(root_element)
         if document is not None:
@@ -128,6 +137,9 @@ class Parser():
             locations = self._process_locations(root_element, document)
             if self.verbose:
                 self._print_locations(locations)
+
+                print '\tLocation mentions'.upper()
+                print '\t- {0}\n'.format(len(LocationMention.objects.filter(document=document)))
 
         return
 
@@ -153,7 +165,7 @@ class Parser():
                 "%s (%s): creating Collection for file %s" %
                 (type(e).__name__, e.message, self.__current_file))
             connection._rollback()
-            return None
+            exit(0)
 
         title = self._get_element_text(root_element, 'meta', 'title')
         docid = self._get_element_text(root_element, 'meta', 'docid')
@@ -161,21 +173,61 @@ class Parser():
         try:
             doc, created = Document.objects.get_or_create(
                 title=title, docid=docid, collection=collection)
+            doc.active = True
             doc.url = self._get_element_text(root_element, 'meta', 'url')
             doc.type = self._get_element_text(root_element, 'meta', 'type')
-            doc.author = self._get_element_text(root_element, 'meta', 'author')
             doc.majlang = self._get_element_text(
                 root_element, 'meta', 'doclang')
             doc.pubdate = self._get_element_date(
                 root_element, 'meta', 'pubdate')
+
+            # publisher
+            publisher_name = self._get_element_text(root_element, 'meta', 'publisher')
+            publisher, created = Publisher.objects.get_or_create(name=publisher_name)
+            doc.publisher = publisher
+
+            # author
+            author_name   = self._get_element_text(root_element, 'meta', 'author')
+            author_gender = self._get_element_text(root_element, 'meta', 'author1gender')
+            parts = author_name.split(',')
+            author, created = Author.objects.get_or_create(
+                forenames=parts[1].strip(),
+                surname=parts[0].strip())
+            if author_gender == 'female':
+                author.gender = 'f'
+            elif author_gender == 'male':
+                author.gender = 'm'
+            else:
+                print 'Unknown gender', author_gender
+                exit(0)
+            da, exists = Document_Author.objects.get_or_create(author=author, document=doc)
+
+            # genre
+            def add_genre(doc, genre):
+                genre, exists = Genre.objects.get_or_create(name=genre)
+                Document_Genre.objects.get_or_create(genre=genre, document=doc)
+
+            genre1 = self._get_element_text(root_element, 'meta', 'genre1')
+            genre2 = self._get_element_text(root_element, 'meta', 'genre2')
+            genre3 = self._get_element_text(root_element, 'meta', 'genre3')
+
+            if genre1:
+                add_genre(doc, genre1)
+            if genre2:
+                add_genre(doc, genre2)
+            if genre3:
+                add_genre(doc, genre3)
+
+            author.save()
             doc.save()
+
             return doc
         except Exception, e:
             log.error(
                 "%s (%s): creating Document for file %s" %
                 (type(e).__name__, e.message, self.__current_file))
             connection._rollback()
-            return None
+            exit(0)
 
         return doc
 
@@ -183,14 +235,24 @@ class Parser():
         """ Print out the various metadata values parsed """
 
         print '\tProcessing metadata:'.upper()
-        print '\t- got docid = %s' % (document.docid)
-        print '\t- got title = %s' % (document.title)
-        print '\t- got url = %s' % (document.url)
-        print '\t- got pubdate = %s' % (document.pubdate)
-        print '\t- got collection = %s' % (document.collection)
-        print '\t- got type = %s' % (document.type)
-        print '\t- got author = %s' % (document.author)
-        print '\t- got majlang = %s' % (document.majlang)
+        print '\t- id = %s' % (document.id)
+        print '\t- docid = %s' % (document.docid)
+        print '\t- title = %s' % (document.title)
+        print '\t- url = %s' % (document.url)
+        print '\t- pubdate = %s' % (document.pubdate)
+        print '\t- collection = %s' % (document.collection)
+        print '\t- type = %s' % (document.type)
+        print '\t- publisher = %s' % document.publisher.name
+
+        document_author = Document_Author.objects.get(document=document)
+        author = document_author.author
+        print '\t- author = %s, %s ' % (author.surname, author.forenames)
+        print '\t- majlang = %s' % (document.majlang)
+
+        document_genres = Document_Genre.objects.filter(document=document)
+        genres = [da.genre.name for da in document_genres]
+        print '\t- genres = %s' % ', '.join(genres)
+
         return
 
     def _process_page(self, url, lang, document):
@@ -219,6 +281,7 @@ class Parser():
                  url,
                  self.__current_file))
             connection._rollback()
+            exit(0)
             return None
         return page
 
@@ -300,19 +363,20 @@ class Parser():
                 cleaned_location_text = ' '.join(titlecase(
                     re.sub('[[Ss][Tt]+\.', 'St. ', re.sub(
                         '[\t\n\r]+', ' ', loc.text).lower())).split())
-                loc.location, created = \
-                    Location.objects.get_or_create(
-                        text=cleaned_location_text,
-                        lat=lat,
-                        lon=lon,
-                        geom=geom,
-                        poly = poly,
-                        ptype = ptype,
-                        in_country=in_country,
-                        gazref=gazref,
-                        feature_type=feature_type,
-                        pop_size=pop_size)
+                loc.location, created = Location.objects.get_or_create(
+                    text=cleaned_location_text,
+                    lat=lat,
+                    lon=lon)
+
                 if created:
+                    loc.location.geom         = geom
+                    loc.location.poly         = poly
+                    loc.location.ptype        = ptype
+                    loc.location.in_country   = in_country
+                    loc.location.gazref       = gazref
+                    loc.location.feature_type = feature_type
+                    loc.location.pop_size = pop_size
+
                     unique_locations.append(loc.text.title())
             except Exception, e:
                 # can't get or create Location; don't create LocationMention
@@ -323,7 +387,7 @@ class Parser():
                      loc.text,
                      self.__current_file))
                 connection._rollback()
-                continue
+                exit(0)
             loc.start_word = \
                 location_element.find('./parts/part').attrib.get('sw')
             loc.end_word = \
@@ -350,8 +414,10 @@ class Parser():
                 palsnip = True
             loc.sentence = self._process_sentence(snippet, loc.page, palsnip)
             location_id = location_element.attrib.get('id')
+
             # Add Document relation
             loc.document = document
+
             try:
                 loc.save()
 
@@ -366,6 +432,7 @@ class Parser():
                      location_id,
                      self.__current_file))
                 connection._rollback()
+                exit(0)
 
         unique_locations.sort()
         return unique_locations
@@ -379,7 +446,7 @@ class Parser():
 
         print '\tProcessing Locations'.upper()
         for location in locations:
-            print '\t- got %s' % location
+            print '\t- %s' % location
 
     def _process_sentence(self, element, page, palsnippet):
         """
