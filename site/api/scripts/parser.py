@@ -5,6 +5,7 @@ import django
 import glob
 import logging
 import os
+import random
 import re
 import sys
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "litlong.local_settings")
@@ -135,12 +136,12 @@ class Parser():
 
             # Parse and store the location elements
             locations = self._process_locations(root_element, document)
+            from django.db.models import Count
             if self.verbose:
-                self._print_locations(locations)
-
-                print '\tLocation mentions'.upper()
-                print '\t- {0}\n'.format(len(LocationMention.objects.filter(document=document)))
-
+                print '\tLocations mentions'.upper()
+                for location in LocationMention.objects.filter(document=document).values('text').annotate(total=Count('text')) :
+                    print '\t- {0} {1}'.format(location['text'], location['total'])
+                print ''
         return
 
     def _process_metadata_and_create_document(self, root_element):
@@ -319,6 +320,9 @@ class Parser():
 
         # Parse each found element
         self.__page_element = 0
+
+        all_edinburghs = Location.objects.filter(text='Edinburgh').exclude(id=91)
+
         for location_element in location_elements:
             gazref = location_element.attrib.get('gazref')
 
@@ -369,12 +373,14 @@ class Parser():
                 cleaned_location_text = ' '.join(titlecase(
                     re.sub('[[Ss][Tt]+\.', 'St. ', re.sub(
                         '[\t\n\r]+', ' ', loc.text).lower())).split())
-                loc.location, created = Location.objects.get_or_create(
-                    text=cleaned_location_text,
-                    lat=lat,
-                    lon=lon)
+                if cleaned_location_text == 'Edinburgh':
+                    loc.location, created = Location.objects.get_or_create(id=random.choice(all_edinburghs).id)
+                else:
+                    loc.location, created = Location.objects.get_or_create(text=cleaned_location_text)
 
                 if created:
+                    loc.location.lat          = lat
+                    loc.location.lon          = lon
                     loc.location.geom         = geom
                     loc.location.poly         = poly
                     loc.location.ptype        = ptype
@@ -426,6 +432,7 @@ class Parser():
 
             try:
                 loc.save()
+                loc.location.save()
 
                 # Keep a track of parsed LocationMentions to enable contruction
                 # of Trade relations
