@@ -320,11 +320,18 @@ class Parser():
         # Parse each found element
         self.__page_element = 0
         for location_element in location_elements:
+            gazref = location_element.attrib.get('gazref')
+
+            # ignore locations not in edinburgh
+            if gazref == None or not gazref.startswith('pg'):
+                continue
+
             # Create new LocationMention object
             loc = LocationMention()
             loc.text = location_element.find('./parts/part').text
             lat = location_element.attrib.get('lat')
             lon = location_element.attrib.get('long')
+
             # Only generate a geom value if lat and lon exist
             if self._is_empty(lat) or self._is_empty(lon):
                 lat = lon = geom = None
@@ -352,7 +359,6 @@ class Parser():
                          poly_tuple,
                          self.__current_file))
             in_country = location_element.attrib.get('in-country')
-            gazref = location_element.attrib.get('gazref')
             feature_type = location_element.attrib.get('feat-type')
             pop_size = location_element.attrib.get('pop-size')
             pop_size = int(pop_size) \
@@ -375,7 +381,7 @@ class Parser():
                     loc.location.in_country   = in_country
                     loc.location.gazref       = gazref
                     loc.location.feature_type = feature_type
-                    loc.location.pop_size = pop_size
+                    loc.location.pop_size     = pop_size
 
                     unique_locations.append(loc.text.title())
             except Exception, e:
