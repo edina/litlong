@@ -74,6 +74,8 @@ class Parser():
             parse. If no end document is given the parse process will contine
             until the last document in the folder is processed.
         verbose: Print detailed output. False by default.
+        threshold: Location confidence threshold, if defined any i-score below
+            this value will be ignored by the parser.
     """
 
     __current_file = None
@@ -83,12 +85,14 @@ class Parser():
                  document_path,
                  start=0,
                  end=9999,
-                 verbose=False):
+                 verbose=False,
+                 threshold=None):
         self.document_path = document_path
         self.start = int(start)
         self.end = int(end)
         self.verbose = verbose
         self.pos = PartOfSpeech.objects.all()
+        self.threshold = threshold
 
     @timer
     def run_parser(self):
@@ -99,6 +103,7 @@ class Parser():
         documents = self._get_listing()
         for document in documents:
             self._parse_document(document)
+            #exit(0)
         return
 
     def _get_listing(self):
@@ -141,6 +146,8 @@ class Parser():
                 print '\tLocations mentions'.upper()
                 for location in LocationMention.objects.filter(document=document).values('text').annotate(total=Count('text')) :
                     print '\t- {0} {1}'.format(location['text'], location['total'])
+                print '\tLocations ignored'.upper()
+                print '\t- ',self.__ignored_locations
                 print ''
         return
 
@@ -320,6 +327,7 @@ class Parser():
 
         # Parse each found element
         self.__page_element = 0
+        self.__ignored_locations = 0
 
         all_edinburghs = Location.objects.filter(text='Edinburgh').exclude(id=91)
 
@@ -329,6 +337,15 @@ class Parser():
             # ignore locations not in edinburgh
             if gazref == None or not gazref.startswith('pg'):
                 continue
+
+            if self.threshold > 0 and isinstance(self.threshold[0], float):
+                # check location meets threshold
+                i_score = float(location_element.find('./pal-snippet').get('i-score'))
+                if i_score < self.threshold[0]:
+                    print 'Ignore ', gazref, ' with i-score of ', i_score
+                    self.__ignored_locations = self.__ignored_locations + 1
+                    continue
+                print i_score
 
             # Create new LocationMention object
             loc = LocationMention()
@@ -399,6 +416,7 @@ class Parser():
                      loc.text,
                      self.__current_file))
                 connection._rollback()
+                print e
                 exit(0)
             loc.start_word = \
                 location_element.find('./parts/part').attrib.get('sw')
@@ -449,17 +467,6 @@ class Parser():
 
         unique_locations.sort()
         return unique_locations
-
-    def _print_locations(self, locations):
-        """ Print location name
-
-        Args:
-            locations: a list of Location objects
-        """
-
-        print '\tProcessing Locations'.upper()
-        for location in locations:
-            print '\t- %s' % location
 
     def _process_sentence(self, element, page, palsnippet):
         """
@@ -725,6 +732,13 @@ def _run_parser():
         type=int,
         help="""End document to be parsed (only applies to -d), If no end
                 document given parse until last.""")
+    parse_group.add_argument(
+        '-t', '--threshold',
+        nargs=1,
+        type=float,
+        default=None,
+        help="""Location confidence threshold, if defined any i-score below this
+                value will be ignored by the parser""")
 
     args = arg_parser.parse_args()
 
@@ -741,11 +755,13 @@ def _run_parser():
         print arg_parser.print_help()
         sys.exit(1)
 
+    #if args.threshold
     # kick off parsing of XML document(s)
     Parser(document_path=directory,
            start=args.start,
            end=args.end,
-           verbose=args.verbose).run_parser()
+           verbose=args.verbose,
+           threshold=args.threshold).run_parser()
 
     sys.exit(0)
 
