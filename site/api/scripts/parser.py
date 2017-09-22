@@ -342,10 +342,9 @@ class Parser():
                 # check location meets threshold
                 i_score = float(location_element.find('./pal-snippet').get('i-score'))
                 if i_score < self.threshold[0]:
-                    print 'Ignore ', gazref, ' with i-score of ', i_score
+                    #print 'Ignore ', gazref, ' with i-score of ', i_score
                     self.__ignored_locations = self.__ignored_locations + 1
                     continue
-                print i_score
 
             # Create new LocationMention object
             loc = LocationMention()
