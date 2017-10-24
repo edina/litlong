@@ -179,6 +179,7 @@ class Parser():
         docid = self._get_element_text(root_element, 'meta', 'docid')
 
         try:
+            #print title, docid, collection, '<-'
             doc, created = Document.objects.get_or_create(
                 title=title, docid=docid, collection=collection)
             doc.active = True
@@ -191,8 +192,9 @@ class Parser():
 
             # publisher
             publisher_name = self._get_element_text(root_element, 'meta', 'publisher')
-            publisher, created = Publisher.objects.get_or_create(name=publisher_name)
-            doc.publisher = publisher
+            if publisher_name:
+                publisher, created = Publisher.objects.get_or_create(name=publisher_name)
+                doc.publisher = publisher
 
             # author
             author_name   = self._get_element_text(root_element, 'meta', 'author')
@@ -250,7 +252,9 @@ class Parser():
         print '\t- pubdate = %s' % (document.pubdate)
         print '\t- collection = %s' % (document.collection)
         print '\t- type = %s' % (document.type)
-        print '\t- publisher = %s' % document.publisher.name
+
+        publisher = 'None' if document.publisher is None else document.publisher.name
+        print '\t- publisher = %s' % publisher
 
         document_author = Document_Author.objects.get(document=document)
         author = document_author.author
